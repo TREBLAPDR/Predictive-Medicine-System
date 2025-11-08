@@ -1,0 +1,16 @@
+medicine_name,category,supplier,current_stock,predicted_demand,status,pending_requests,unit_price,expiry_date
+Paracetamol,Tablet,PharmaCorp,120,150,In Stock,5,3.50,2025-12-31
+Amoxicillin,Capsule,MediSupply Co.,80,90,In Stock,0,12.00,2026-06-30
+Vitamin C,Syrup,HealthPlus Inc.,50,65,In Stock,3,5.00,2025-10-15
+Ibuprofen,Tablet,PharmaCorp,15,45,Low Stock,2,8.00,2025-08-01
+Cetirizine,Tablet,AllergyMeds Ltd.,40,55,In Stock,1,6.50,2026-02-20
+Aspirin,Tablet,CardioHealth,200,180,In Stock,10,2.75,2026-01-15
+Metformin,Tablet,DiabetesCare,95,110,In Stock,4,15.00,2025-11-20
+Losartan,Tablet,CardioHealth,18,50,Low Stock,6,20.00,2025-09-30
+Omeprazole,Capsule,GastroMeds,65,70,In Stock,0,18.50,2026-03-10
+Salbutamol,Inhaler,RespiratoryCare,30,40,In Stock,2,45.00,2025-12-05
+Azithromycin,Capsule,MediSupply Co.,12,35,Low Stock,8,25.00,2025-07-15
+Ciprofloxacin,Tablet,PharmaCorp,55,60,In Stock,0,14.00,2026-01-25
+Loperamide,Tablet,GastroMeds,90,75,In Stock,3,4.50,2025-11-30
+Ranitidine,Tablet,GastroMeds,45,50,In Stock,0,7.00,2025-10-20
+Diclofenac,Tablet,PainRelief Inc.,110,95,In Stock,5,9.50,2026-04-10
