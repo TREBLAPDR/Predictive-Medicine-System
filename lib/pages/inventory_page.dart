@@ -1,7 +1,6 @@
 // File: lib/pages/inventory_page.dart
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import 'dart:convert';
 import 'package:csv/csv.dart';
 import '../models/medicine_data.dart';
@@ -40,26 +39,28 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Future<void> _loadDataFromFile() async {
     try {
-      setState(() {
-        isLoading = true;
-      });
+      setState(() => isLoading = true);
 
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv', 'json'],
         dialogTitle: 'Select Medicine Data File',
+        withData: true, // ✅ Needed for web
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
+      if (result != null && result.files.isNotEmpty) {
+        final fileBytes = result.files.single.bytes;
         final extension = result.files.single.extension?.toLowerCase();
 
+        if (fileBytes == null) throw Exception('File data is empty');
+
+        final content = utf8.decode(fileBytes);
         List<MedicineData> medicines = [];
 
         if (extension == 'csv') {
-          medicines = await _parseCSV(file);
+          medicines = await _parseCSV(content);
         } else if (extension == 'json') {
-          medicines = await _parseJSON(file);
+          medicines = await _parseJSON(content);
         } else {
           throw Exception('Unsupported file format');
         }
@@ -101,19 +102,14 @@ class _InventoryPageState extends State<InventoryPage> {
         );
       }
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
-  Future<List<MedicineData>> _parseCSV(File file) async {
-    final input = await file.readAsString();
+  Future<List<MedicineData>> _parseCSV(String input) async {
     final fields = const CsvToListConverter().convert(input);
 
-    if (fields.isEmpty) {
-      throw Exception('CSV file is empty');
-    }
+    if (fields.isEmpty) throw Exception('CSV file is empty');
 
     final headers = fields[0].map((h) => h.toString().toLowerCase().trim()).toList();
 
@@ -135,9 +131,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
     for (int i = 1; i < fields.length; i++) {
       final row = fields[i];
-      if (row.length <= medicineNameIdx || row.length <= currentStockIdx) {
-        continue;
-      }
+      if (row.length <= medicineNameIdx || row.length <= currentStockIdx) continue;
 
       try {
         final currentStock = int.parse(row[currentStockIdx].toString());
@@ -160,7 +154,7 @@ class _InventoryPageState extends State<InventoryPage> {
               : 0.0,
           expiryDate: expiryDateIdx != -1 && row.length > expiryDateIdx ? row[expiryDateIdx].toString().trim() : '',
         ));
-      } catch (e) {
+      } catch (_) {
         continue;
       }
     }
@@ -168,21 +162,18 @@ class _InventoryPageState extends State<InventoryPage> {
     return medicines;
   }
 
-  Future<List<MedicineData>> _parseJSON(File file) async {
-    final input = await file.readAsString();
+  Future<List<MedicineData>> _parseJSON(String input) async {
     final jsonData = json.decode(input);
 
-    if (jsonData is! List) {
-      throw Exception('JSON must be an array of objects');
-    }
+    if (jsonData is! List) throw Exception('JSON must be an array of objects');
 
     List<MedicineData> medicines = [];
 
     for (var item in jsonData) {
       if (item is! Map) continue;
 
-      String? getValue(List<String> possibleKeys) {
-        for (var key in possibleKeys) {
+      String? getValue(List<String> keys) {
+        for (var key in keys) {
           for (var itemKey in item.keys) {
             if (itemKey.toString().toLowerCase() == key.toLowerCase()) {
               return item[itemKey]?.toString();
@@ -196,9 +187,7 @@ class _InventoryPageState extends State<InventoryPage> {
         final medicineName = getValue(['medicine_name', 'medicinename', 'medicine', 'name']);
         final currentStockStr = getValue(['current_stock', 'currentstock', 'stock']);
 
-        if (medicineName == null || currentStockStr == null) {
-          continue;
-        }
+        if (medicineName == null || currentStockStr == null) continue;
 
         final currentStock = int.parse(currentStockStr);
         medicines.add(MedicineData(
@@ -212,7 +201,7 @@ class _InventoryPageState extends State<InventoryPage> {
           unitPrice: double.tryParse(getValue(['unit_price', 'unitprice', 'price']) ?? '0') ?? 0.0,
           expiryDate: getValue(['expiry_date', 'expirydate', 'expiry']) ?? '',
         ));
-      } catch (e) {
+      } catch (_) {
         continue;
       }
     }
@@ -231,17 +220,9 @@ class _InventoryPageState extends State<InventoryPage> {
   void _applyFilters() {
     setState(() {
       filteredMedicines = allMedicines.where((medicine) {
-        // Category filter
-        if (selectedCategory != 'All' && medicine.category != selectedCategory) {
-          return false;
-        }
+        if (selectedCategory != 'All' && medicine.category != selectedCategory) return false;
+        if (showLowStockOnly && medicine.currentStock >= 20) return false;
 
-        // Low stock filter
-        if (showLowStockOnly && medicine.currentStock >= 20) {
-          return false;
-        }
-
-        // Search filter
         if (searchQuery.isNotEmpty) {
           final query = searchQuery.toLowerCase();
           return medicine.medicineName.toLowerCase().contains(query) ||
@@ -352,10 +333,7 @@ class _InventoryPageState extends State<InventoryPage> {
                     ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                 )
                     : const Icon(Icons.upload_file),
                 label: Text(isLoading ? 'Loading...' : 'Load Data'),
@@ -363,9 +341,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   backgroundColor: const Color(0xFF50C878),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
               const SizedBox(width: 16),
@@ -377,14 +353,11 @@ class _InventoryPageState extends State<InventoryPage> {
                   backgroundColor: const Color(0xFF4169E1),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
               const Spacer(),
-              if (hasLoadedData) ...[
-                // Search Bar
+              if (hasLoadedData)
                 Container(
                   width: 300,
                   height: 48,
@@ -406,16 +379,14 @@ class _InventoryPageState extends State<InventoryPage> {
                     ),
                   ),
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 24),
 
           // Filters
-          if (hasLoadedData) ...[
+          if (hasLoadedData)
             Row(
               children: [
-                // Category Dropdown
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
@@ -444,7 +415,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Low Stock Filter
                 FilterChip(
                   label: const Text('Low Stock Only'),
                   selected: showLowStockOnly,
@@ -464,17 +434,12 @@ class _InventoryPageState extends State<InventoryPage> {
                 const Spacer(),
                 Text(
                   'Showing ${filteredMedicines.length} of ${allMedicines.length} items',
-                  style: const TextStyle(
-                    color: Color(0xFF718096),
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Color(0xFF718096), fontSize: 14),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-          ],
+          const SizedBox(height: 24),
 
-          // Inventory Table
           Expanded(
             child: hasLoadedData
                 ? InventoryTable(
@@ -485,29 +450,14 @@ class _InventoryPageState extends State<InventoryPage> {
                 : Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.inventory_2_outlined,
-                    size: 80,
-                    color: const Color(0xFFE2E8F0),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No data loaded',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Color(0xFF718096),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Click "Load Data" to import inventory from CSV or JSON',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFFA0AEC0),
-                    ),
-                  ),
+                children: const [
+                  Icon(Icons.inventory_2_outlined, size: 80, color: Color(0xFFE2E8F0)),
+                  SizedBox(height: 16),
+                  Text('No data loaded',
+                      style: TextStyle(fontSize: 18, color: Color(0xFF718096), fontWeight: FontWeight.w500)),
+                  SizedBox(height: 8),
+                  Text('Click "Load Data" to import inventory from CSV or JSON',
+                      style: TextStyle(fontSize: 14, color: Color(0xFFA0AEC0))),
                 ],
               ),
             ),
