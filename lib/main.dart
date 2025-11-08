@@ -112,7 +112,7 @@ class _MainScreenState extends State<MainScreen> {
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          'MedPro AI',
+                          'PMS AI',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
