@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import 'dart:convert';
 import 'package:csv/csv.dart';
 import '../../widgets/kpi_card.dart';
@@ -31,18 +30,22 @@ class _DashboardPageState extends State<DashboardPage> {
         type: FileType.custom,
         allowedExtensions: ['csv', 'json'],
         dialogTitle: 'Select Medicine Data File',
+        withData: true, // ✅ Important for web compatibility
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
+      if (result != null && result.files.isNotEmpty) {
+        final fileBytes = result.files.single.bytes;
         final extension = result.files.single.extension?.toLowerCase();
 
+        if (fileBytes == null) throw Exception('File data is empty');
+
+        final content = utf8.decode(fileBytes);
         List<MedicineData> medicines = [];
 
         if (extension == 'csv') {
-          medicines = await _parseCSV(file);
+          medicines = await _parseCSV(content);
         } else if (extension == 'json') {
-          medicines = await _parseJSON(file);
+          medicines = await _parseJSON(content);
         } else {
           throw Exception('Unsupported file format');
         }
@@ -90,8 +93,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<List<MedicineData>> _parseCSV(File file) async {
-    final input = await file.readAsString();
+  Future<List<MedicineData>> _parseCSV(String input) async {
     final fields = const CsvToListConverter().convert(input);
 
     if (fields.isEmpty) {
@@ -115,9 +117,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     for (int i = 1; i < fields.length; i++) {
       final row = fields[i];
-      if (row.length <= medicineNameIdx || row.length <= currentStockIdx) {
-        continue;
-      }
+      if (row.length <= medicineNameIdx || row.length <= currentStockIdx) continue;
 
       try {
         medicines.add(MedicineData(
@@ -140,8 +140,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return medicines;
   }
 
-  Future<List<MedicineData>> _parseJSON(File file) async {
-    final input = await file.readAsString();
+  Future<List<MedicineData>> _parseJSON(String input) async {
     final jsonData = json.decode(input);
 
     if (jsonData is! List) {
@@ -265,7 +264,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           const SizedBox(height: 32),
 
-          // KPI Cards Grid (fixed)
+          // KPI Cards Grid
           LayoutBuilder(
             builder: (context, constraints) {
               final cardWidth = (constraints.maxWidth - 48) / 2;
